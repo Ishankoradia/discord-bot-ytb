@@ -381,39 +381,65 @@ async def ping(ctx):
     print(f"🏓 Ping command used by {ctx.author.name}")
 
 
-@bot.command(name="checkperms")
-async def check_permissions(ctx):
-    """Check bot permissions in current channel"""
-    if ctx.guild:
-        bot_member = ctx.guild.get_member(bot.user.id)
-        if bot_member:
-            perms = bot_member.permissions_in(ctx.channel)
-            embed = discord.Embed(title="Bot Permissions", color=0x00FF00)
-            embed.add_field(
-                name="Read Messages", value=perms.read_messages, inline=True
-            )
-            embed.add_field(
-                name="Send Messages", value=perms.send_messages, inline=True
-            )
-            embed.add_field(
-                name="Add Reactions", value=perms.add_reactions, inline=True
-            )
-            embed.add_field(
-                name="Read Message History",
-                value=perms.read_message_history,
-                inline=True,
-            )
-            embed.add_field(
-                name="Use External Emojis", value=perms.use_external_emojis, inline=True
-            )
-            embed.add_field(
-                name="Manage Messages", value=perms.manage_messages, inline=True
-            )
-            await ctx.send(embed=embed)
-        else:
-            await ctx.send("❌ Bot member not found in guild")
-    else:
+@bot.command(name="members")
+async def list_members(ctx, limit: int = 10):
+    """List all members in the server"""
+    if not ctx.guild:
         await ctx.send("❌ This command can only be used in a server")
+        return
+
+    # Get all members
+    members = ctx.guild.members
+    total_members = len(members)
+
+    print(f"📊 Total members in {ctx.guild.name}: {total_members}")
+
+    # Create embed with member info
+    embed = discord.Embed(
+        title=f"Members in {ctx.guild.name}",
+        description=f"Total: {total_members} members\nRequested by {ctx.author.mention}",
+        color=0x00FF00,
+    )
+
+    # Show limited number of members (to avoid embed size limits)
+    display_limit = min(limit, 25)  # Discord embed field limit
+    member_list = []
+
+    for i, member in enumerate(members[:display_limit]):
+        status_emoji = (
+            "🟢"
+            if member.status == discord.Status.online
+            else (
+                "🟡"
+                if member.status == discord.Status.idle
+                else "🔴" if member.status == discord.Status.dnd else "⚫"
+            )
+        )
+
+        bot_indicator = "🤖" if member.bot else "👤"
+
+        member_info = f"{status_emoji} {bot_indicator} {member.mention} ({member.name})"
+        member_list.append(member_info)
+
+    # Add members to embed
+    if member_list:
+        embed.add_field(
+            name=f"First {display_limit} Members:",
+            value="\n".join(member_list),
+            inline=False,
+        )
+
+    # Add statistics
+    bots = sum(1 for member in members if member.bot)
+    humans = total_members - bots
+    online = sum(1 for member in members if member.status != discord.Status.offline)
+
+    embed.add_field(name="👤 Humans", value=str(humans), inline=True)
+    embed.add_field(name="🤖 Bots", value=str(bots), inline=True)
+    embed.add_field(name="🟢 Online", value=str(online), inline=True)
+
+    await ctx.send(embed=embed)
+    print(f"🤖 Listed {display_limit} members for {ctx.author.name}")
 
 
 @bot.event
